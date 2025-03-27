@@ -2,7 +2,6 @@
 import { Asset, AssetsResponse, AssetResponse, UploadResponse, ErrorResponse } from "./types";
 
 const API_URL = "/api";
-const API_KEY = ""; // Set API key here or retrieve from localStorage
 
 // Helper function to handle API responses
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -19,8 +18,9 @@ async function handleResponse<T>(response: Response): Promise<T> {
 function getHeaders(isUpload: boolean = false): HeadersInit {
   const headers: HeadersInit = {};
   
-  if (API_KEY) {
-    headers["X-API-Key"] = API_KEY;
+  const apiKey = getApiKey();
+  if (apiKey) {
+    headers["X-API-Key"] = apiKey;
   }
   
   if (!isUpload) {

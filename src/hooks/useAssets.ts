@@ -1,99 +1,113 @@
+import { useState, useEffect, useCallback } from "react";
+import { fetchAssets, deleteAsset as deleteAssetApi, getApiKey } from "@/lib/api";
+import { Asset } from "@/lib/types";
+import { useToast } from "@/components/ui/use-toast";
+import { useDebounce } from "./useDebounce";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { 
-  fetchAssets, 
-  fetchAsset, 
-  deleteAsset as deleteAssetApi,
-  getApiKey
-} from "../lib/api";
-import { useState } from "react";
-
-export function useAssets(limit: number = 50, initialOffset: number = 0) {
-  const [offset, setOffset] = useState(initialOffset);
-  const [search, setSearch] = useState("");
-  const hasApiKey = !!getApiKey();
-
-  // Query for fetching assets with pagination
-  const { 
-    data,
-    isLoading, 
-    error, 
-    refetch 
-  } = useQuery({
-    queryKey: ["assets", limit, offset, search],
-    queryFn: () => fetchAssets(limit, offset, search),
-    enabled: hasApiKey,
-    staleTime: 1000 * 60, // 1 minute
-  });
-
-  // Delete asset mutation
-  const queryClient = useQueryClient();
-  const deleteMutation = useMutation({
-    mutationFn: (assetId: string) => deleteAssetApi(assetId),
-    onSuccess: () => {
-      toast.success("Asset deleted successfully");
-      queryClient.invalidateQueries({ queryKey: ["assets"] });
-    },
-    onError: (error) => {
-      toast.error(`Failed to delete asset: ${error instanceof Error ? error.message : "Unknown error"}`);
-    },
-  });
-
-  // Pagination handlers
-  const totalPages = Math.ceil((data?.total || 0) / limit);
-  const currentPage = Math.floor(offset / limit) + 1;
-  
-  const nextPage = () => {
-    if (currentPage < totalPages) {
-      setOffset(offset + limit);
-    }
-  };
-  
-  const prevPage = () => {
-    if (offset >= limit) {
-      setOffset(offset - limit);
-    }
-  };
-  
-  const goToPage = (page: number) => {
-    const newOffset = (page - 1) * limit;
-    setOffset(newOffset);
-  };
-
-  return {
-    assets: data?.assets || [],
-    total: data?.total || 0,
-    isLoading,
-    error,
-    refetch,
-    hasApiKey,
-    search,
-    setSearch,
-    pagination: {
-      limit,
-      offset,
-      totalPages,
-      currentPage,
-      nextPage,
-      prevPage,
-      goToPage,
-    },
-    deleteAsset: (id: string) => deleteMutation.mutate(id),
-    isDeletingAsset: deleteMutation.isPending,
-  };
+interface Pagination {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  onNextPage: () => void;
+  onPrevPage: () => void;
+  onPageChange: (page: number) => void;
 }
 
-export function useAsset(id: string) {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["asset", id],
-    queryFn: () => fetchAsset(id),
-    enabled: !!id && !!getApiKey(),
-  });
+export function useAssets(itemsPerPage: number = 10) {
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const debouncedSearch = useDebounce(search, 500);
+  const { toast } = useToast();
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const offset = (currentPage - 1) * itemsPerPage;
+      const response = await fetchAssets(itemsPerPage, offset, debouncedSearch);
+      
+      setAssets(response.assets);
+      setTotalItems(response.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch assets");
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to fetch assets",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentPage, itemsPerPage, debouncedSearch, toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
+
+  const deleteAsset = async (id: string) => {
+    try {
+      await deleteAssetApi(id);
+      setAssets((prev) => prev.filter((asset) => asset.id !== id));
+      toast({
+        title: "Asset deleted",
+        description: "The asset has been successfully deleted.",
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to delete asset",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+
+  const pagination: Pagination = {
+    currentPage,
+    totalPages,
+    totalItems,
+    itemsPerPage,
+    hasNextPage: currentPage < totalPages,
+    hasPrevPage: currentPage > 1,
+    onNextPage: () => {
+      if (currentPage < totalPages) {
+        setCurrentPage((prev) => prev + 1);
+      }
+    },
+    onPrevPage: () => {
+      if (currentPage > 1) {
+        setCurrentPage((prev) => prev - 1);
+      }
+    },
+    onPageChange: (page: number) => {
+      if (page >= 1 && page <= totalPages) {
+        setCurrentPage(page);
+      }
+    },
+  };
 
   return {
-    asset: data?.asset,
+    assets,
     isLoading,
     error,
+    search,
+    setSearch,
+    pagination,
+    deleteAsset,
+    refreshAssets: fetchData,
   };
 }
