@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import FileTable from "@/components/FileTable";
@@ -33,6 +34,17 @@ const Index = () => {
       setActiveTab("files");
     }
   }, [uploadDialogOpen, activeTab]);
+
+  // Map our pagination object to match what FileTable expects
+  const tablePagination = {
+    limit: pagination.itemsPerPage,
+    offset: (pagination.currentPage - 1) * pagination.itemsPerPage,
+    totalPages: pagination.totalPages,
+    currentPage: pagination.currentPage,
+    nextPage: pagination.onNextPage,
+    prevPage: pagination.onPrevPage,
+    goToPage: pagination.onPageChange
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-background animate-fade-in">
@@ -70,7 +82,7 @@ const Index = () => {
                 assets={assets} 
                 isLoading={isLoading} 
                 onDelete={deleteAsset} 
-                pagination={pagination}
+                pagination={tablePagination}
               />
             </TabsContent>
             
