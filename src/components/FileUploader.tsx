@@ -93,14 +93,11 @@ export default function FileUploader() {
                   
                   <Progress 
                     value={item.progress} 
-                    className="h-1 mt-2" 
-                    indicatorClassName={
-                      item.status === "error" 
-                        ? "bg-destructive" 
-                        : item.status === "success" 
-                          ? "bg-green-500" 
-                          : undefined
-                    }
+                    className={cn(
+                      "h-1 mt-2",
+                      item.status === "error" ? "bg-destructive" : 
+                      item.status === "success" ? "bg-green-500" : ""
+                    )}
                   />
                 </div>
               </div>

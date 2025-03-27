@@ -38,6 +38,14 @@ const Index = () => {
     }
   }, [uploadDialogOpen, activeTab]);
 
+  // Handle API key button click
+  const handleApiKeyButtonClick = () => {
+    const keyButton = document.querySelector('[data-key-button="true"]');
+    if (keyButton instanceof HTMLElement) {
+      keyButton.click();
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-background animate-fade-in">
       <Header />
@@ -53,7 +61,7 @@ const Index = () => {
               <p className="text-center text-muted-foreground mb-6">
                 You need to set your API key to use the UploadSphere application.
               </p>
-              <Button onClick={() => document.querySelector('[data-key-button="true"]')?.click()}>
+              <Button onClick={handleApiKeyButtonClick}>
                 Set API Key
               </Button>
             </div>
